@@ -2,60 +2,102 @@ import React, { Component} from "react";
 import {hot} from "react-hot-loader";
 import "./App.css";
 
-const List = ( { list } ) => 
-  list.map( ( { objectID, ...item } ) => 
+const List = ( { list, onRemoveItem} ) => 
+  list.map( item => 
     <Item
-      key={ objectID }
-      { ...item }
+      key={ item.objectID }
+      item= { item }
+      onRemoveItem={ onRemoveItem }
     /> 
   );
 
-const Item = ( { title, url, author, num_comments, points } ) => (
+const Item = ( { item, onRemoveItem } ) => (
   <div>
     <span>
-      <a href={ url }>{ title }</a>
+      <a href={ item.url }>{ item.title }</a>
     </span>
-    <span>{ author }</span>
-    <span>{ num_comments }</span>
-    <span>{ points }</span>
+    <span>{ item.author }</span>
+    <span>{ item.num_comments }</span>
+    <span>{ item.points }</span>
+    <span>
+      <button type="button" onClick={ () => onRemoveItem(item) }>
+        Dismiss
+      </button>
+    </span>      
   </div>
 );
+
+const initialStories = [
+  {
+    title: 'React',
+    url: 'https://reactjs.org/',
+    author: 'Jordan Walke',
+    num_comments: 3,
+    points: 4,
+    objectID: 0,
+  },
+  {
+    title: 'Redux',
+    url: 'https://redux.js.org/',
+    author: 'Dan Abramov, Andrew Clark',
+    num_comments: 2,
+    points: 5,
+    objectID: 1,
+  },
+];
+
+const getAsyncStories = () =>
+  new Promise(resolve =>
+    setTimeout(
+      () => resolve({ data: { stories: initialStories } }),
+      2000
+    )
+  );
+
+const useSemiPersistentState = ( key, initialValue ) => {
+  const [ value, setValue ] = React.useState(
+    localStorage.getItem(key) || initialValue
+  );
+
+  React.useEffect(() => {
+    localStorage.setItem(key, value);
+  }, [value, key]);
+
+  return [ value, setValue ];
+};
 
   
 const App = () => {
 
-  const stories = [
-    {
-      title: 'React',
-      url: 'https://reactjs.org/',
-      author: 'Jordan Walke',
-      num_comments: 3,
-      points: 4,
-      objectID: 0,
-    },
-    {
-      title: 'Redux',
-      url: 'https://redux.js.org/',
-      author: 'Dan Abramov, Andrew Clark',
-      num_comments: 2,
-      points: 5,
-      objectID: 1,
-    },
-  ];
-  const [searchTerm, setSearchTerm] = React.useState(
-    localStorage.getItem('search') || 'React'
-  );
+  const [searchTerm, setSearchTerm] = useSemiPersistentState( 'search', 'React' );
 
-  React.useEffect(() => {
-      localStorage.setItem( 'search', searchTerm );
-    }, [searchTerm]);  
+  const [ stories, setStories ] = React.useState( [] );
+  const [ isLoading, setIsLoading ] = React.useState( false );
+  const [ isError, setIsError ] = React.useState(false);
+
+  React.useEffect( () => {
+    setIsLoading( true );
+
+    getAsyncStories().then( result => {
+      setStories( result.data.stories );
+      setIsLoading( false );
+    } )
+    .catch( () => setIsError( true ) );
+  }, [] );  
 
   const handleSearch = event => {
     setSearchTerm( event.target.value );
   };
 
-  const searchedStories = stories.filter(  story =>
-    story.title.toLowerCase().includes(searchTerm.toLowerCase())
+  const handleRemoveStory = item => {
+    const newStories = stories.filter(
+      story => item.objectID !== story.objectID
+    );
+    setStories(newStories);
+  };  
+
+    const searchedStories = stories.filter(  story =>
+      story.title.toLowerCase().includes(searchTerm.toLowerCase())
   );  
 
     return(
@@ -64,16 +106,51 @@ const App = () => {
         <Search search={ searchTerm } onSearch = { handleSearch } />
         <p>Search Term is: { searchTerm } </p>
         <hr />
-        <List list = { searchedStories } />
+        {isError && <p>Something went wrong ...</p>}
+        { isLoading ? (
+          <p>Loading ...</p>
+        ) : (
+          <List list = { searchedStories } onRemoveItem={ handleRemoveStory } />
+        ) }
       </div>
     );
 }
 
 const Search = ( { search, onSearch } ) => (
     <div>
-      <label htmlFor="search"> Search: </label>
-      <input id="search" type="text" onChange = { onSearch } value = { search } />
+      <InputWithLabel
+        id="search"
+        value={ search }
+        isFocused
+        onInputChange={ onSearch }
+      >
+        <strong>Search: </strong>
+      </InputWithLabel>
     </div>
   )
+
+const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, children }) => {
+  const inputRef = React.useRef();
+
+  React.useEffect(() => {
+    if (isFocused && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isFocused]);  
+  
+  return(
+    <>
+      <label htmlFor={id}>{ children }</label>
+      &nbsp;
+      <input
+        ref= { inputRef }
+        id={id}
+        type={ type }
+        value={value}
+        onChange={onInputChange}
+      />
+    </>
+  );
+}    
 
 export default hot(module)(App);
