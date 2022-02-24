@@ -1,4 +1,6 @@
 import React, { Component} from "react";
+import 'babel-polyfill';
+import axios from 'axios';
 import {hot} from "react-hot-loader";
 import "./App.css";
 
@@ -9,18 +11,24 @@ const List = ( { list, onRemoveItem} ) =>
       item= { item }
       onRemoveItem={ onRemoveItem }
     /> 
-  );
+);
+
+const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';  
 
 const Item = ( { item, onRemoveItem } ) => (
-  <div>
-    <span>
+  <div className="item">
+    <span style={{ width: '40%' }}>
       <a href={ item.url }>{ item.title }</a>
     </span>
-    <span>{ item.author }</span>
-    <span>{ item.num_comments }</span>
-    <span>{ item.points }</span>
-    <span>
-      <button type="button" onClick={ () => onRemoveItem(item) }>
+    <span style={{ width: '30%' }}>{ item.author }</span>
+    <span style={{ width: '10%' }}>{ item.num_comments }</span>
+    <span style={{ width: '10%' }}>{ item.points }</span>
+    <span style={{ width: '10%' }}>
+      <button 
+        type="button" 
+        onClick={ () => onRemoveItem(item) }
+        className="button button_small"
+      >
         Dismiss
       </button>
     </span>      
@@ -60,6 +68,7 @@ const useSemiPersistentState = ( key, initialValue ) => {
   );
 
   React.useEffect(() => {
+
     localStorage.setItem(key, value);
   }, [value, key]);
 
@@ -68,14 +77,34 @@ const useSemiPersistentState = ( key, initialValue ) => {
 
 const storiesReducer = ( state, action ) => {
   switch ( action.type ) {
-    case 'SET_STORIES':
-      return action.payload;
-    case 'REMOVE_STORY':
-      return state.filter(
-        story => action.payload.objectID !== story.objectID
-      );
-    default:
-      throw new Error();
+    case 'STORIES_FETCH_INIT':
+      return {
+      ...state,
+      isLoading: true,
+      isError: false,
+      };
+      case 'STORIES_FETCH_SUCCESS':
+        return {
+          ...state,
+          isLoading: false,
+          isError: false,
+          data: action.payload,
+        };
+      case 'STORIES_FETCH_FAILURE':
+        return {
+          ...state,
+          isLoading: false,
+          isError: true,
+        };
+      case 'REMOVE_STORY':
+        return {
+          ...state,
+          data: state.data.filter(
+            story => action.payload.objectID !== story.objectID
+          ),
+        };
+      default:
+        throw new Error();
   }
 };
 
@@ -84,75 +113,95 @@ const App = () => {
 
   const [searchTerm, setSearchTerm] = useSemiPersistentState( 'search', 'React' );
 
-  //const [ stories, setStories ] = React.useState( [] );
-  const [ isLoading, setIsLoading ] = React.useState( false );
-  const [ isError, setIsError ] = React.useState(false);
-  const [ stories, dispatchStories ] = React.useReducer(
+  const [url, setUrl] = React.useState(
+    `${API_ENDPOINT}${searchTerm}`
+  );
+  
+  const handleSearchInput = event => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleSearchSubmit = () => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`);
+    event.preventDefault();
+  };  
+
+  const [stories, dispatchStories] = React.useReducer(
     storiesReducer,
-    [],
+    { data: [], isLoading: false, isError: false }
   );
 
-  React.useEffect( () => {
-    setIsLoading( true );
+  const handleFetchStories = React.useCallback( async () => {
 
-    getAsyncStories().then( result => {
-      //setStories( result.data.stories );
-      dispatchStories( {
-        type: 'SET_STORIES',
-        payload: result.data.stories,
-      } );
-      setIsLoading( false );
-    } )
-    .catch( () => setIsError( true ) );
-  }, [] );  
+    dispatchStories({ type: 'STORIES_FETCH_INIT' });
+    try {
+
+      const result = await axios.get( url );
+
+      dispatchStories({
+        type: 'STORIES_FETCH_SUCCESS',
+        payload: result.data.hits,
+      });
+    }
+    catch {
+      dispatchStories({ type: 'STORIES_FETCH_FAILURE' });
+    }
+
+  }, [url]); // E  
+
+  React.useEffect( () => {
+    handleFetchStories();
+  }, [handleFetchStories] );  
 
   const handleSearch = event => {
     setSearchTerm( event.target.value );
   };
 
   const handleRemoveStory = item => {
-    /*const newStories = stories.filter(
-      story => item.objectID !== story.objectID
-    );*/
 
     dispatchStories( {
       type: 'REMOVE_STORY',
       payload: item,
     } );    
-    //setStories(newStories);
   };  
 
-    const searchedStories = stories.filter(  story =>
+  /*  const searchedStories = stories.data.filter(  story =>
       story.title.toLowerCase().includes(searchTerm.toLowerCase())
-  );  
+  );  */
 
     return(
       <div className="App">
-        <h1> My Hacker Stories</h1>
-        <Search search={ searchTerm } onSearch = { handleSearch } />
+        <h1 className="headline-primary"> My Hacker Stories</h1>
+        <Search search={ searchTerm } onSearchInput = { handleSearchInput } onSearchSubmit = {handleSearchSubmit} />
         <p>Search Term is: { searchTerm } </p>
-        <hr />
-        {isError && <p>Something went wrong ...</p>}
-        { isLoading ? (
+        {stories.isError && <p>Something went wrong ...</p>}
+        { stories.isLoading ? (
           <p>Loading ...</p>
         ) : (
-          <List list = { searchedStories } onRemoveItem={ handleRemoveStory } />
+          <List list = { stories.data } onRemoveItem={ handleRemoveStory } />
         ) }
       </div>
     );
 }
 
-const Search = ( { search, onSearch } ) => (
-    <div>
+const Search = ( { search, onSearchInput, onSearchSubmit } ) => (
+  <form onSubmit={onSearchSubmit} className="search-form">
       <InputWithLabel
         id="search"
         value={ search }
         isFocused
-        onInputChange={ onSearch }
+        onInputChange={ onSearchInput }
       >
         <strong>Search: </strong>
       </InputWithLabel>
-    </div>
+      <button
+        type="submit"
+        disabled={!search}
+        className="button button_large"
+      >
+        Submit
+      </button>      
+    </form>
   )
 
 const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, children }) => {
@@ -166,7 +215,7 @@ const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, ch
   
   return(
     <>
-      <label htmlFor={id}>{ children }</label>
+      <label htmlFor={id}  className="label">{ children }</label>
       &nbsp;
       <input
         ref= { inputRef }
@@ -174,6 +223,7 @@ const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, ch
         type={ type }
         value={value}
         onChange={onInputChange}
+        className="input"
       />
     </>
   );
