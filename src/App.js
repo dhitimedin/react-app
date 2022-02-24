@@ -2,7 +2,8 @@ import React, { Component} from "react";
 import 'babel-polyfill';
 import axios from 'axios';
 import {hot} from "react-hot-loader";
-import "./App.css";
+import styles from "./App.module.css";
+import Check from './check.svg';
 
 const List = ( { list, onRemoveItem} ) => 
   list.map( item => 
@@ -16,7 +17,7 @@ const List = ( { list, onRemoveItem} ) =>
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';  
 
 const Item = ( { item, onRemoveItem } ) => (
-  <div className="item">
+  <div className={styles.item}>
     <span style={{ width: '40%' }}>
       <a href={ item.url }>{ item.title }</a>
     </span>
@@ -27,9 +28,9 @@ const Item = ( { item, onRemoveItem } ) => (
       <button 
         type="button" 
         onClick={ () => onRemoveItem(item) }
-        className="button button_small"
+        className={`${styles.button} ${styles.buttonSmall}`}
       >
-        Dismiss
+        <Check height="18px" width="18px" />
       </button>
     </span>      
   </div>
@@ -170,8 +171,8 @@ const App = () => {
   );  */
 
     return(
-      <div className="App">
-        <h1 className="headline-primary"> My Hacker Stories</h1>
+      <div className={styles.App}>
+        <h1 className={styles.headlinePrimary}> My Hacker Stories</h1>
         <Search search={ searchTerm } onSearchInput = { handleSearchInput } onSearchSubmit = {handleSearchSubmit} />
         <p>Search Term is: { searchTerm } </p>
         {stories.isError && <p>Something went wrong ...</p>}
@@ -185,7 +186,7 @@ const App = () => {
 }
 
 const Search = ( { search, onSearchInput, onSearchSubmit } ) => (
-  <form onSubmit={onSearchSubmit} className="search-form">
+  <form onSubmit={onSearchSubmit} className={styles.searchForm}>
       <InputWithLabel
         id="search"
         value={ search }
@@ -197,7 +198,7 @@ const Search = ( { search, onSearchInput, onSearchSubmit } ) => (
       <button
         type="submit"
         disabled={!search}
-        className="button button_large"
+        className={`${styles.button} ${styles.button_large}`}
       >
         Submit
       </button>      
@@ -215,7 +216,7 @@ const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, ch
   
   return(
     <>
-      <label htmlFor={id}  className="label">{ children }</label>
+      <label htmlFor={id}  className={styles.label}>{ children }</label>
       &nbsp;
       <input
         ref= { inputRef }
@@ -223,7 +224,7 @@ const InputWithLabel = ({ id, value, type = 'text', onInputChange, isFocused, ch
         type={ type }
         value={value}
         onChange={onInputChange}
-        className="input"
+        className={styles.input}
       />
     </>
   );
