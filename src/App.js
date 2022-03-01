@@ -192,7 +192,6 @@ const App = () => {
 
   const handleLastSearch = searchTerm => {
     handleSearch(searchTerm);
-    console.log("Search Term is: " + searchTerm);
     setSearchTerm(searchTerm);
   };
 
