@@ -1,18 +1,72 @@
 import React, { Component} from "react";
 import 'babel-polyfill';
 import axios from 'axios';
+import { sortBy } from 'lodash';
 import {hot} from "react-hot-loader";
 import styles from "./App.module.css";
 import Check from './check.svg';
 
-const List = ( { list, onRemoveItem} ) => 
-  list.map( item => 
-    <Item
-      key={ item.objectID }
-      item= { item }
-      onRemoveItem={ onRemoveItem }
-    /> 
-);
+
+const SORTS = {
+  NONE: list => list,
+  TITLE: list => sortBy(list, 'title'),
+  AUTHOR: list => sortBy(list, 'author'),
+  COMMENT: list => sortBy(list, 'num_comments').reverse(),
+  POINT: list => sortBy(list, 'points').reverse(),
+};
+
+const List = ( { list, onRemoveItem} ) => {
+  
+    const [ sort, setSort ] = React.useState({
+      sortKey: 'NONE',
+      isReverse: false,
+    });
+
+    const handleSort = sortKey => {
+      const isReverse = sort.sortKey === sortKey && !sort.isReverse;
+      setSort({ sortKey: sortKey, isReverse: isReverse });
+    };    
+
+  const sortFunction = SORTS[ sort.sortKey ];
+  const sortedList = sort.isReverse
+                          ? sortFunction(list).reverse()
+                          : sortFunction(list);
+
+  return (
+      <div>
+        <div style={{ display: 'flex' }}>
+          <span style={{ width: '40%' }}>
+            <button type="button" onClick={() => handleSort('TITLE')}>
+              Title
+            </button>
+          </span>
+          <span style={{ width: '30%' }}>
+            <button type="button" onClick={() => handleSort('AUTHOR')}>
+              Author
+            </button>
+          </span>
+          <span style={{ width: '10%' }}>
+            <button type="button" onClick={() => handleSort('COMMENT')}>
+              Comments
+            </button>
+          </span>
+          <span style={{ width: '10%' }}>
+            <button type="button" onClick={() => handleSort('POINT')}>
+              Points
+            </button>
+          </span>
+          <span style={{ width: '10%' }}>Actions</span>
+        </div>      
+        {sortedList.map( item => (
+          <Item
+            key={ item.objectID }
+            item= { item }
+            onRemoveItem={ onRemoveItem }
+          />
+        ))}
+      </div>
+    );
+};
 
 const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';  
 
@@ -30,38 +84,11 @@ const Item = ( { item, onRemoveItem } ) => (
         onClick={ () => onRemoveItem(item) }
         className={`${styles.button} ${styles.buttonSmall}`}
       >
-        <Check height="18px" width="18px" />
+        <Check className={styles.check} />
       </button>
     </span>      
   </div>
 );
-
-const initialStories = [
-  {
-    title: 'React',
-    url: 'https://reactjs.org/',
-    author: 'Jordan Walke',
-    num_comments: 3,
-    points: 4,
-    objectID: 0,
-  },
-  {
-    title: 'Redux',
-    url: 'https://redux.js.org/',
-    author: 'Dan Abramov, Andrew Clark',
-    num_comments: 2,
-    points: 5,
-    objectID: 1,
-  },
-];
-
-const getAsyncStories = () =>
-  new Promise(resolve =>
-    setTimeout(
-      () => resolve({ data: { stories: initialStories } }),
-      2000
-    )
-  );
 
 const useSemiPersistentState = ( key, initialValue ) => {
   const [ value, setValue ] = React.useState(
@@ -109,23 +136,72 @@ const storiesReducer = ( state, action ) => {
   }
 };
 
+const extractSearchTerm = url => url.replace(API_ENDPOINT, '');
+
+const getLastSearches = urls => {
+
+  let terms = [];
+  if( urls.length > 1 ){
+    let searchArray  = urls.slice( 0, urls.length-1 );
+    let searchedTerm =  urls.slice( -1 );
+
+    terms       = ( urls.length < 6 ) ? 
+                  urls.slice( 0, urls.length - 1 ).map(extractSearchTerm) : 
+                  urls.slice( -6, -1 ).map(extractSearchTerm);
+
+    if( searchArray.includes( searchedTerm[0] ) ) {
+
+      let index = urls.indexOf( searchedTerm[0] );
+      urls.splice( index, 1 );
+      terms       = ( urls.length < 6 ) ? 
+                    urls.slice( 0, urls.length - 1 ).map(extractSearchTerm) : 
+                    urls.slice( -6, -1 ).map(extractSearchTerm);
+    }     
+  }
+
+
+
+  console.log(urls);
+  
+  /*if( terms.includes(searchTerm) ) {
+    urls.splice()
+  }*/
+
+  return terms
+
+}
+
+const getUrl = searchTerm => `${API_ENDPOINT}${searchTerm}`;
   
 const App = () => {
 
   const [searchTerm, setSearchTerm] = useSemiPersistentState( 'search', 'React' );
 
-  const [url, setUrl] = React.useState(
-    `${API_ENDPOINT}${searchTerm}`
-  );
+  const [urls, setUrls] = React.useState([getUrl(searchTerm)]);
+
+  const lastSearches = getLastSearches(urls);
   
   const handleSearchInput = event => {
     setSearchTerm(event.target.value);
   };
 
   const handleSearchSubmit = () => {
-    setUrl(`${API_ENDPOINT}${searchTerm}`);
+    handleSearch(searchTerm);
     event.preventDefault();
-  };  
+  };
+
+  const handleLastSearch = searchTerm => {
+    handleSearch(searchTerm);
+    console.log("Search Term is: " + searchTerm);
+    setSearchTerm(searchTerm);
+  };
+
+  const handleSearch = searchTerm => {
+    const url = getUrl(searchTerm);
+    
+    setUrls(urls.concat(url));
+
+  };
 
   const [stories, dispatchStories] = React.useReducer(
     storiesReducer,
@@ -137,7 +213,10 @@ const App = () => {
     dispatchStories({ type: 'STORIES_FETCH_INIT' });
     try {
 
-      const result = await axios.get( url );
+      const lastUrl = urls[urls.length - 1];
+      const result = await axios.get(lastUrl);      
+
+      //const result = await axios.get( url );
 
       dispatchStories({
         type: 'STORIES_FETCH_SUCCESS',
@@ -148,15 +227,11 @@ const App = () => {
       dispatchStories({ type: 'STORIES_FETCH_FAILURE' });
     }
 
-  }, [url]); // E  
+  }, [urls]); // E  
 
   React.useEffect( () => {
     handleFetchStories();
   }, [handleFetchStories] );  
-
-  const handleSearch = event => {
-    setSearchTerm( event.target.value );
-  };
 
   const handleRemoveStory = item => {
 
@@ -174,6 +249,15 @@ const App = () => {
       <div className={styles.App}>
         <h1 className={styles.headlinePrimary}> My Hacker Stories</h1>
         <Search search={ searchTerm } onSearchInput = { handleSearchInput } onSearchSubmit = {handleSearchSubmit} />
+          {lastSearches.map( (searchTerm, index) => (
+            <button
+              key={searchTerm + index}
+              type="button"
+              onClick={() =>  handleLastSearch(searchTerm)}
+            >
+              {searchTerm}
+            </button>
+          ))}
         <p>Search Term is: { searchTerm } </p>
         {stories.isError && <p>Something went wrong ...</p>}
         { stories.isLoading ? (

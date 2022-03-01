@@ -40,7 +40,7 @@
   color: #ffffff;
 }
 
-.button:hover > svg > g {
+.button:hover > svg > path {
   fill: #ffffff;
   stroke: #ffffff;
 }
@@ -69,3 +69,13 @@
   background-color: transparent;
   font-size: 24px;
 }
+
+.check {
+  height: 18px;
+  width: 18px;
+}
+
+/*.check > svg > g {
+  fill: #ffffff;
+  stroke: #ffffff;
+}*/
