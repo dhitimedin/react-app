@@ -142,26 +142,16 @@ const getLastSearches = urls => {
 
   let terms = [];
   if( urls.length > 1 ){
-    let searchArray  = urls.slice( 0, urls.length-1 );
     let searchedTerm =  urls.slice( -1 );
+    let index = urls.indexOf( searchedTerm[0] );
 
-    if( searchArray.includes( searchedTerm[0] ) ) {
-
-      let index = urls.indexOf( searchedTerm[0] );
+    if( index !== -1 && index !== ( urls.length - 1) ) {
       urls.splice( index, 1 );
     } 
     terms       = ( urls.length < 6 ) ? 
-    urls.slice( 0, urls.length - 1 ).map(extractSearchTerm) : 
-    urls.slice( -6, -1 ).map(extractSearchTerm);    
+                  urls.slice( 0, urls.length - 1 ).map(extractSearchTerm) : 
+                  urls.slice( -6, -1 ).map(extractSearchTerm);   
   }
-
-
-
-  console.log(urls);
-  
-  /*if( terms.includes(searchTerm) ) {
-    urls.splice()
-  }*/
 
   return terms
 
