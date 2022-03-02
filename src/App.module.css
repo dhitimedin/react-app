@@ -1,5 +1,5 @@
 .App {
-  height: 100vw;
+  height: auto;
   padding: 20px;
   background: #83a4d4; /* fallback for old browsers */
   background: linear-gradient(to left, #b6fbff, #83a4d4);
